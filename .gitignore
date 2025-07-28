@@ -1,0 +1,9 @@
+*.mp4 
+*.mkv 
+*.mov 
+/OutputClips/ 
+/SourceVideos/ 
+/RawVideos/
+/TempAudio/
+/AutoClips/
+/ConvertedVideos/

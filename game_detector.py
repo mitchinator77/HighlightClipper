@@ -1,0 +1,1 @@
+# Placeholder: Detects game based on early frames

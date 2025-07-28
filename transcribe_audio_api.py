@@ -1,0 +1,1 @@
+# Placeholder: Sends audio to OpenAI Whisper API
