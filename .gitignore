@@ -1,16 +1,20 @@
-*.env
+# Video & audio
 *.mp4
 *.mkv
 *.mov
 *.wav
-OutputClips/
+
+# Output folders
 SourceVideos/
-RawVideos/
-TempAudio/
-AutoClips/
 ConvertedVideos/
-StoryBoard/
-ClipScores/
+OutputClips/
+TempAudio/
 Transcripts/
+rawvideos/
+ClipScores/
+Storyboard/
+
+# Secrets
+.env
 
 
