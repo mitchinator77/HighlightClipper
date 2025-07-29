@@ -1,12 +1,11 @@
+
 import json
-import cv2
 from pathlib import Path
 from audio_headshot_detector import detect_headshot_audio
 from visual_headshot_flash_detector import detect_headshot_flash
-from visual_killfeed_detector import detect_killfeed, load_templates
 from visual_skull_detector import detect_skull_kill, load_skull_templates
+from killfeed_detector import detect_killfeed, load_templates
 
-# Load config
 config_path = Path("score_config.json")
 if config_path.exists():
     with config_path.open() as f:
@@ -20,34 +19,38 @@ else:
         "threshold_clipworthy": 0.5
     }
 
-# Load templates once
-killfeed_templates = load_templates("killfeed_templates")
+def compute_convergence_score(audio_times, visual_times, skull_times, killfeed_times, window=2.0):
+    all_times = sorted(set(audio_times + visual_times + skull_times + killfeed_times))
+    bonus = 0
+    for t in all_times:
+        nearby = sum([
+            any(abs(t - at) <= window for at in audio_times),
+            any(abs(t - vt) <= window for vt in visual_times),
+            any(abs(t - st) <= window for st in skull_times),
+            any(abs(t - kt) <= window for kt in killfeed_times),
+        ])
+        if nearby >= 3:
+            bonus += 1
+    return bonus
+
 skull_templates = load_skull_templates("skull_templates")
+killfeed_templates = load_templates("killfeed_templates")
 
-def score_clip(video_path, visual_score, audio_score, transcript_score):
+def score_clip(video_path, audio_result, visual_result, skull_result, killfeed_result):
+    audio_score, audio_times = audio_result
+    visual_score, visual_times = visual_result
+    skull_score, skull_times = skull_result
+    killfeed_score, killfeed_times = killfeed_result
+
     score = 0
+    score += audio_score * config["audio_confidence_multiplier"]
+    score += visual_score * config["visual_flash_multiplier"]
+    score += skull_score * config["skull_weight"]
+    score += min(killfeed_score, 3) * config["killfeed_weight"]
 
-    # Killfeed detection
-    killfeed_score = detect_killfeed(video_path, killfeed_templates)
-    if killfeed_score > 0:
-        print(f"🧠 Killfeed score: {killfeed_score}")
-        score += min(killfeed_score, 3) * config["killfeed_weight"]
-
-    # Visual headshot flash
-    if visual_score > 0:
-        print(f"🧠 Headshot flashes: {visual_score}")
-        score += visual_score * config["visual_flash_multiplier"]
-
-    # Audio-based detection
-    if audio_score > 0.6:
-        print(f"🧠 Audio headshot confidence: {audio_score:.2f}")
-        score += audio_score * config["audio_confidence_multiplier"]
-
-    # Skull detection
-    skull_conf = detect_skull_kill(video_path, skull_templates)
-    if skull_conf >= 0.7:
-        print(f"💀 Skull detected! Confidence: {skull_conf}")
-        score += skull_conf * config["skull_weight"]
+    bonus = compute_convergence_score(audio_times, visual_times, skull_times, killfeed_times)
+    print(f"🧠 Convergence bonus: {bonus}")
+    score += bonus
 
     return round(score, 2)
 
@@ -65,17 +68,19 @@ def score_all_clips():
     clip_scores = {}
 
     for clip_path in chunked_videos:
-        visual_score = detect_headshot_flash(clip_path)
-        audio_score = detect_headshot_audio(clip_path)
-        transcript_score = 0  # Future use
+        visual_result = detect_headshot_flash(clip_path)
+        audio_result = detect_headshot_audio(clip_path)
+        skull_result = detect_skull_kill(clip_path, skull_templates)
+        killfeed_result = detect_killfeed(clip_path, killfeed_templates)
 
-        final_score, skull_conf = score_clip(clip_path, visual_score, audio_score, transcript_score)
+        final_score = score_clip(clip_path, audio_result, visual_result, skull_result, killfeed_result)
         is_clip = is_clipworthy(final_score)
 
         clip_scores[clip_path.name] = {
-            "visual_headshot_score": visual_score,
-            "audio_headshot_score": audio_score,
-            "skull_confidence": skull_conf,
+            "visual_score": visual_result[0],
+            "audio_score": audio_result[0],
+            "skull_score": skull_result[0],
+            "killfeed_score": killfeed_result[0],
             "final_score": final_score,
             "clipworthy": is_clip
         }

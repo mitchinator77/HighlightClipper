@@ -1,0 +1,103 @@
+Upcoming Tasks – HighlightClipper Roadmap
+
+This document outlines the planned upgrades and enhancements for the HighlightClipper AI Pipeline to move from modular highlight detection to full end-to-end automation and optimization.
+
+🧠 Phase 1: Scoring & Detection Improvements
+
+1. Weighted Temporal Convergence Scoring
+
+Reward clips where multiple signals (killfeed, flash, skull, audio spike) occur within 0.5–1.0 seconds.
+
+Improves true kill accuracy and reduces false positives.
+
+2. Visual Kill Tracking Persistence
+
+Track duration of each visual signal (when it appears/disappears).
+
+Helps ignore static HUD elements and background flashes.
+
+3. ROI-Based Frame Cropping (Killfeed & Skull)
+
+Crop to exact region where killfeed/skull appears (e.g. bottom center, top right).
+
+Greatly reduces per-frame image comparison time.
+
+🚀 Phase 2: Trimming & Clip Finalization
+
+4. Dynamic Clip Trimming Around Events
+
+Score clips by timestamp and extract only ~10s before and ~4s after peak signal.
+
+Enables shorter, more engaging highlights.
+
+5. Branded Intros/Outros/Transitions
+
+Add animated .mp4 intro/outro via ffmpeg concat.
+
+Store reusable stinger clips in /assets/branding/.
+
+📺 Phase 3: Transcripts & Storytelling
+
+6. Whisper-Based Transcription
+
+Transcribe highlights using Whisper.
+
+Extract key phrases ("ACE", "last player standing", etc.).
+
+Use transcripts for smart title/caption generation.
+
+7. Thumbnail Auto-Generator
+
+Grab top-scoring frame.
+
+Overlay game text, agent face, or weapon.
+
+Save to thumbnails/ for each highlight.
+
+🤖 Phase 4: Upload Automation
+
+8. Auto Uploader (TikTok, YT Shorts, Reels)
+
+Smart title/tag generation from clip metadata.
+
+Add staggered upload timing per platform.
+
+Use API or emulated automation (e.g. Selenium).
+
+📊 Phase 5: Feedback Metrics & Trainer
+
+9. Post-Upload Metrics Collector
+
+Track views, likes, and watch duration.
+
+Add metrics to clip_scores.json for analysis.
+
+10. Self-Updating Scoring Config
+
+Track performance per signal type.
+
+Auto-update weights in score_config.json based on real-world outcomes.
+
+Save versioned configs (e.g. score_config_v2.json).
+
+⚖️ Developer Tools
+
+11. Single Clip Tester Script (test_video.py)
+
+Run all detectors against a single video.
+
+Output verbose frame logs and scores.
+
+12. Verbose Logging Levels
+
+Add toggles for basic vs full debug logs.
+
+Make pipeline less noisy in standard runs.
+
+13. Dry-Run Mode for Scoring
+
+Analyze and score clips without moving or trimming.
+
+Useful for debugging false positives.
+
+Next Step: Begin with Phase 1, Task 1 – Temporal Convergence Scoring.
