@@ -1,0 +1,6 @@
+{
+  "killfeed_weight": 1.0,
+  "visual_flash_multiplier": 1.5,
+  "audio_confidence_multiplier": 2.0,
+  "threshold_clipworthy": 0.5
+}
