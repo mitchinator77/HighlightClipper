@@ -18,7 +18,7 @@ def match_headshot_sound(features, threshold=0.85):
             return True
     return False
 
-def analyze_audio_for_headshots(video_path, temp_audio_path='temp_audio.wav'):
+def detect_headshot_audio(video_path, temp_audio_path='temp_audio.wav'):
     os.system(f'ffmpeg -y -i "{video_path}" -vn -acodec pcm_s16le -ar 44100 -ac 1 "{temp_audio_path}"')
     features = extract_audio_features(temp_audio_path)
     return match_headshot_sound(features)

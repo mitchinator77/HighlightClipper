@@ -52,4 +52,19 @@ def main():
     log_header("Pipeline Finished ✅")
 
 if __name__ == "__main__":
-    main()
+    if __name__ == "__main__":
+    print("🌀 Starting pipeline.")
+
+    # Step 1: Convert MKV to MP4
+    convert_mkv_batch()
+
+    # Step 2: Chunk MP4s
+    chunk_videos()
+
+    # ✅ Step 3: Score clips
+    from clip_scorer import score_all_clips
+    score_all_clips()
+
+    # Step 4+: Transcription, storyboarding, uploading, etc.
+
+

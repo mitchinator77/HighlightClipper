@@ -1,1 +1,6 @@
-# Placeholder for original script. Unchanged.
+opencv-python
+numpy
+librosa
+scipy
+moviepy
+pydub
