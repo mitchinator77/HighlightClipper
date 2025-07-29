@@ -10,14 +10,23 @@ config_path = Path("score_config.json")
 if config_path.exists():
     with config_path.open() as f:
         config = json.load(f)
+config_path = Path("score_config.json")
+default_config = {
+    "killfeed_weight": 1.0,
+    "visual_flash_multiplier": 1.5,
+    "audio_confidence_multiplier": 2.0,
+    "skull_weight": 1.2,
+    "threshold_clipworthy": 0.5
+}
+
+if config_path.exists():
+    with config_path.open() as f:
+        config = json.load(f)
 else:
-    config = {
-        "killfeed_weight": 1.0,
-        "visual_flash_multiplier": 1.5,
-        "audio_confidence_multiplier": 2.0,
-        "skull_weight": 1.2,
-        "threshold_clipworthy": 0.5
-    }
+    config = default_config
+    with config_path.open("w") as f:
+        json.dump(default_config, f, indent=2)
+
 
 def compute_convergence_score(audio_times, visual_times, skull_times, killfeed_times, window=2.0):
     all_times = sorted(set(audio_times + visual_times + skull_times + killfeed_times))
