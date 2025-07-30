@@ -8,7 +8,7 @@ from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import ModelCheckpoint
 
 AUDIO_DIR = "AudioSamples"
-MODEL_OUT = "Models/headshot_audio_classifier.h5"
+MODEL_OUT_DIR = "Models/headshot_model_tf"  # Changed from .h5 to directory
 SAMPLE_RATE = 22050
 DURATION = 2.0  # seconds
 MFCC_DIM = (40, 87)  # Adjusted based on sample duration and hop length
@@ -49,11 +49,23 @@ def build_model():
     return model
 
 def train():
-    os.makedirs(os.path.dirname(MODEL_OUT), exist_ok=True)
+    os.makedirs(MODEL_OUT_DIR, exist_ok=True)
     X_train, X_test, y_train, y_test = load_data()
     model = build_model()
-    checkpoint = ModelCheckpoint(MODEL_OUT, save_best_only=True, monitor='val_accuracy', mode='max')
+
+    # Save best model in SavedModel format (directory-based)
+    checkpoint = ModelCheckpoint(
+        filepath=MODEL_OUT_DIR,
+        save_best_only=True,
+        monitor='val_accuracy',
+        mode='max',
+        save_format="tf"  # <-- important!
+    )
+
     model.fit(X_train, y_train, epochs=20, batch_size=16, validation_data=(X_test, y_test), callbacks=[checkpoint])
+
+    # Optional: force manual save after training completes
+    model.save(MODEL_OUT_DIR, save_format="tf")
 
 if __name__ == "__main__":
     train()

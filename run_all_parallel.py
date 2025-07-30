@@ -42,13 +42,13 @@ def classify_and_log_audio(clip_path, label, timestamp, confidence):
         dest = headshot_dir / clip_path.name
         clip_path.rename(dest)
 
+def load_predict_headshot():
+    from infer_headshot import predict
+    return predict
+
 def main():
     logger = setup_logger()
     log_header("Starting HighlightClipper (Parallel Mode)")
-
-    def load_predict_headshot():
-        from infer_headshot import predict
-        return predict
 
     try:
         logger.info("🎞️ Converting MKV to MP4 from SourceVideos/...")
@@ -68,10 +68,15 @@ def main():
         logger.info("🧠 Running Parallel Detection + Scoring...")
         templates = load_templates("killfeed_templates")
         chunked_videos = sorted(Path("Chunks").glob("*.mp4"))
-
-        args = [(clip_path, templates, logger, trim_highlights, detect_killfeed_events, log_scores_to_file,
-                 detect_audio_peaks, detect_headshot_audio_peaks, load_predict_headshot)
+        
+        
+        predict_fn = load_predict_headshot()
+        
+        args = [(clip_path, templates, trim_highlights, detect_killfeed_events, log_scores_to_file,
+                detect_audio_peaks, detect_headshot_audio_peaks, predict_fn)
                 for clip_path in chunked_videos]
+
+
 
         with Pool(processes=4) as pool:
             pool.starmap(process_clip, args)
@@ -92,6 +97,5 @@ def main():
 
 if __name__ == "__main__":
     import multiprocessing
-    multiprocessing.set_start_method("spawn", force=True)  # ← makes it explicit
-    # Then start your processing logic
+    multiprocessing.set_start_method("spawn", force=True)
     main()

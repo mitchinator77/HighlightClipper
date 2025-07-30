@@ -15,9 +15,12 @@ def extract_audio_ffmpeg(video_path, audio_path, duration=2.0):
     ]
     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-def process_clip(clip_path, templates, logger, trim_func, scorer,
+def process_clip(clip_path, templates, trim_func, scorer,
                  logger_func, audio_peak_func, headshot_func, classifier_func):
     clip_name = clip_path.name
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
     logger.info(f"🎯 Processing: {clip_name}")
 
     # Detect killfeed

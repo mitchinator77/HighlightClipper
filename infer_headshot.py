@@ -1,6 +1,5 @@
 import librosa
 import numpy as np
-from tensorflow.keras.models import load_model
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
@@ -18,6 +17,7 @@ def extract_features(file_path):
     return mfcc[..., np.newaxis]
 
 def predict(audio_file):
+    from tensorflow.keras.models import load_model
     model = load_model(MODEL_PATH)
     mfcc = extract_features(audio_file)
     mfcc = np.expand_dims(mfcc, axis=0)
