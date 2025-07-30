@@ -1,25 +1,40 @@
 import cv2
 import os
 from pathlib import Path
+import numpy as np
 
-template_dir = Path("killfeed_templates")
-cleaned_dir = Path("cleaned_templates")
-cleaned_dir.mkdir(exist_ok=True)
-
-def enhance_and_resize_template(image_path, target_size=(100, 100)):
-    img = cv2.imread(str(image_path))
-    if img is None:
-        return None
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+def enhance_image(image):
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    enhanced = clahe.apply(gray)
-    resized = cv2.resize(enhanced, target_size)
-    return resized
+    clahe_img = clahe.apply(gray)
+    normalized = cv2.normalize(clahe_img, None, 0, 255, cv2.NORM_MINMAX)
+    return normalized
 
-for file in template_dir.iterdir():
-    if file.suffix.lower() in [".png", ".jpg", ".jpeg"]:
-        processed = enhance_and_resize_template(file)
-        if processed is not None:
-            output_path = cleaned_dir / file.name
-            cv2.imwrite(str(output_path), processed)
-            print(f"✅ Saved: {output_path.name}")
+def enhance_templates(input_root="templates", output_root="cleaned_templates"):
+    input_root = Path(input_root)
+    output_root = Path(output_root)
+
+    for category_dir in input_root.iterdir():
+        if not category_dir.is_dir():
+            continue
+
+        output_category_dir = output_root / category_dir.name
+        output_category_dir.mkdir(parents=True, exist_ok=True)
+
+        for img_path in category_dir.glob("*.png"):
+            try:
+                image = cv2.imread(str(img_path))
+                if image is None:
+                    print(f"⚠️ Could not read: {img_path.name}")
+                    continue
+
+                enhanced = enhance_image(image)
+                output_name = f"{img_path.stem}_{category_dir.name}.png"
+                out_path = output_category_dir / output_name
+                cv2.imwrite(str(out_path), enhanced)
+                print(f"✅ Saved: {out_path.name}")
+            except Exception as e:
+                print(f"❌ Error processing {img_path.name}: {e}")
+
+if __name__ == "__main__":
+    enhance_templates()

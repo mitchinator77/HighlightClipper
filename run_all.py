@@ -1,19 +1,19 @@
 import logging
 import os
-from chunker import chunk_all_videos
+from pathlib import Path
 from mkv_converter import convert_all_mkv
+from chunker import chunk_all_videos
 from game_recognizer import classify_chunks_by_game
 from killfeed_detector import detect_killfeed_events, load_templates
-from audio_spike_detector import detect_audio_peaks
-from headshot_audio import detect_headshot_audio_peaks
-from event_utils import normalize_event_timestamps
-from temporal_convergence_scorer import compute_convergence_score
-from highlight_filter_and_trimmer import trim_highlights
 from highlight_logger import log_event
+from headshot_audio import detect_headshot_audio_peaks
+from audio_spike_detector import detect_audio_peaks
+from temporal_convergence_scorer import compute_convergence_score
 from clip_scorer import score_all_clips
 from scoring_logger import log_scores_to_file
-from trainer_trigger import check_and_trigger_trainer
+from highlight_filter_and_trimmer import trim_highlights
 
+# ✅ Logging setup
 def setup_logger():
     logging.basicConfig(
         level=logging.INFO,
@@ -22,54 +22,61 @@ def setup_logger():
     )
     return logging.getLogger(__name__)
 
-def main():
-    logger = setup_logger()
+log = setup_logger()
 
-    logger.info("🔄 Converting MKV to MP4...")
+def log_header(text):
+    log.info(f"🔧 {text} 🔧")
+
+def main():
+    # ✅ Step 1: Convert MKV to MP4
+    log_header("Converting MKV to MP4...")
     convert_all_mkv()
 
-    logger.info("✂️ Chunking videos...")
+    # ✅ Step 2: Chunk videos
+    log_header("Chunking videos...")
     chunk_all_videos()
 
-    logger.info("🎮 Classifying game per chunk...")
-    game_labels = classify_chunks_by_game("Chunks")
+    # ✅ Step 3: Game classification per chunk
+    log_header("Classifying game per chunk...")
+    chunk_game_map = classify_chunks_by_game("Chunks")
 
-    logger.info("⚙️ Running highlight detection on Valorant chunks...")
-    killfeed_templates = load_templates("killfeed_templates")
+    # ✅ Step 4: Highlight detection for Valorant chunks
+    log_header("Running highlight detection on Valorant chunks...")
+    cleaned_template_path = os.path.join("cleaned_templates")
+    all_templates = load_templates(cleaned_template_path)
 
-    for chunk_name, game in game_labels.items():
+    for chunk_filename, game in chunk_game_map.items():
         if game != "valorant":
-            logger.info(f"⏭️ Skipping non-Valorant chunk: {chunk_name}")
+            log.info(f"⏭️ Skipping non-Valorant chunk: {chunk_filename}")
             continue
 
-        logger.info(f"🎯 Processing Valorant chunk: {chunk_name}")
-        chunk_path = os.path.join("Chunks", chunk_name)
+        chunk_path = os.path.join("Chunks", chunk_filename)
+        log.info(f"🎯 Processing Valorant chunk: {chunk_filename}")
 
-        # Detect events
-        audio_peaks = detect_audio_peaks(chunk_path)
-        headshot_peaks = detect_headshot_audio_peaks(chunk_path)
-        killfeed_peaks = detect_killfeed_events(chunk_path, killfeed_templates)
+        try:
+            # Killfeed detection
+            killfeed_events = detect_killfeed_events(chunk_path, all_templates.get("killfeed", []))
+            log_event(chunk_filename, "killfeed", killfeed_events)
 
-        # Normalize timestamps
-        all_events = normalize_event_timestamps(audio_peaks, killfeed_peaks, headshot_peaks)
+            # Audio-based headshot detection
+            headshot_peaks = detect_headshot_audio_peaks(chunk_path)
+            log_event(chunk_filename, "headshot_audio", headshot_peaks)
 
-        # Score based on convergence
-        scored_clips = compute_convergence_score(chunk_path, all_events)
+            # Audio spikes
+            audio_peaks = detect_audio_peaks(chunk_path)
+            log_event(chunk_filename, "audio_spike", audio_peaks)
 
-        # Trim highlights
-        trim_highlights(scored_clips, chunk_path)
+            # Score convergence
+            convergence_scores = compute_convergence_score(chunk_filename)
+            log_scores_to_file(chunk_filename, convergence_scores)
 
-        # Log results
-        log_event(chunk_path, audio_peaks, killfeed_peaks, headshot_peaks)
-        log_scores_to_file(chunk_path, scored_clips)
+            # Trim & export highlights
+            trim_highlights(chunk_filename, convergence_scores)
 
-        # Score for ranking
-        score_all_clips()
+        except Exception as e:
+            log.error(f"❌ Error processing {chunk_filename}: {e}")
 
-        # Trigger self-training if needed
-        check_and_trigger_trainer()
-
-    logger.info("✅ Pipeline complete.")
+    log.info("✅ Pipeline complete.")
 
 if __name__ == "__main__":
     main()

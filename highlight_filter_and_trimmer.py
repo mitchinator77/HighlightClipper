@@ -1,30 +1,38 @@
+import cv2
+import numpy as np
 import os
-from moviepy.editor import VideoFileClip
+from pathlib import Path
+from clip_utils import trim_and_save_clip
+from scoring_logger import log_clip_decision
+from headshot_audio import detect_headshot_audio_peaks
+from killfeed_detector import detect_killfeed_events, load_templates
+from spectator_detector import is_spectator_present
 
-def trim_highlights(video_path: str, scored_moments: list, output_dir="Highlights", pre=10, post=10, score_threshold=2.5):
-    """
-    Saves clips around high-score events (+/- X seconds).
-    """
-    os.makedirs(output_dir, exist_ok=True)
-    base_name = os.path.splitext(os.path.basename(video_path))[0]
+def trim_highlights(video_path, all_templates, output_dir="Highlights", maybe_dir="Maybes", headshot_audio_peaks=None):
+    killfeed_templates = [t for t in all_templates if t.shape[0] > 20]  # crude filter for size-based selection
+    score, timestamps = detect_killfeed_events(video_path, killfeed_templates)
 
-    # Open the main video file
-    video = VideoFileClip(video_path)
+    if headshot_audio_peaks is None:
+        headshot_audio_peaks = detect_headshot_audio_peaks(video_path)
 
-    try:
-        for i, (timestamp, score) in enumerate(scored_moments):
-            if score < score_threshold:
-                continue
+    headshot_boosted = []
+    for ts in timestamps:
+        boosted = any(abs(ts - hs_ts) < 1.0 for hs_ts in headshot_audio_peaks)
+        headshot_boosted.append(boosted)
 
-            start = max(0, timestamp - pre)
-            end = min(video.duration, timestamp + post)
+    for idx, ts in enumerate(timestamps):
+        is_headshot = headshot_boosted[idx]
+        confidence_score = score + (2 if is_headshot else 0)
 
-            subclip = video.subclip(start, end)
-            out_path = os.path.join(output_dir, f"{base_name}_highlight_{i+1}.mp4")
-            subclip.write_videofile(out_path, codec="libx264", audio_codec="aac", logger=None)
+        if is_spectator_present(video_path, ts):
+            log_clip_decision(video_path, ts, confidence_score, "Spectating - Skipped")
+            continue
 
-            # Explicitly close subclip to free resources
-            subclip.close()
-    finally:
-        # Always close the main video to prevent file lock
-        video.close()
+        if confidence_score >= 5:
+            trim_and_save_clip(video_path, ts, output_dir, tag="headshot" if is_headshot else "highlight")
+            log_clip_decision(video_path, ts, confidence_score, "Highlight")
+        elif confidence_score >= 3:
+            trim_and_save_clip(video_path, ts, maybe_dir, tag="maybe")
+            log_clip_decision(video_path, ts, confidence_score, "Maybe")
+        else:
+            log_clip_decision(video_path, ts, confidence_score, "Ignored")
