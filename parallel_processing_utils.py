@@ -4,6 +4,7 @@ from moviepy.editor import VideoFileClip
 from pathlib import Path
 from event_utils import normalize_event_timestamps
 from clip_scorer import compute_convergence_score
+from detect_headshot_audio_peaks_patch import save_headshot_timestamps
 
 def extract_audio_ffmpeg(video_path, audio_path, duration=2.0):
     os.makedirs(os.path.dirname(audio_path), exist_ok=True)
