@@ -1,0 +1,102 @@
+[
+  {
+    "timestamp": 10.1,
+    "score": 3.0,
+    "visual_nearby": [
+      10.1
+    ],
+    "audio_nearby": [
+      10.4
+    ],
+    "headshot_nearby": [
+      10.3
+    ]
+  },
+  {
+    "timestamp": 10.3,
+    "score": 3.0,
+    "visual_nearby": [
+      10.1
+    ],
+    "audio_nearby": [
+      10.4
+    ],
+    "headshot_nearby": [
+      10.3
+    ]
+  },
+  {
+    "timestamp": 10.4,
+    "score": 3.0,
+    "visual_nearby": [
+      10.1
+    ],
+    "audio_nearby": [
+      10.4
+    ],
+    "headshot_nearby": [
+      10.3
+    ]
+  },
+  {
+    "timestamp": 25.3,
+    "score": 1.866,
+    "visual_nearby": [
+      25.3
+    ],
+    "audio_nearby": [
+      25.5
+    ],
+    "headshot_nearby": []
+  },
+  {
+    "timestamp": 25.5,
+    "score": 1.863,
+    "visual_nearby": [
+      25.3
+    ],
+    "audio_nearby": [
+      25.5
+    ],
+    "headshot_nearby": []
+  },
+  {
+    "timestamp": 40.0,
+    "score": 3.0,
+    "visual_nearby": [
+      40.0
+    ],
+    "audio_nearby": [
+      41.2
+    ],
+    "headshot_nearby": [
+      40.5
+    ]
+  },
+  {
+    "timestamp": 40.5,
+    "score": 3.0,
+    "visual_nearby": [
+      40.0
+    ],
+    "audio_nearby": [
+      41.2
+    ],
+    "headshot_nearby": [
+      40.5
+    ]
+  },
+  {
+    "timestamp": 41.2,
+    "score": 3.0,
+    "visual_nearby": [
+      40.0
+    ],
+    "audio_nearby": [
+      41.2
+    ],
+    "headshot_nearby": [
+      40.5
+    ]
+  }
+]

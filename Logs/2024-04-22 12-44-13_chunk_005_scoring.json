@@ -1,0 +1,20 @@
+[
+  {
+    "timestamp": 22.0,
+    "score": 1.196,
+    "visual_nearby": [
+      22.0
+    ],
+    "audio_nearby": [],
+    "headshot_nearby": []
+  },
+  {
+    "timestamp": 40.2,
+    "score": 1.003,
+    "visual_nearby": [
+      40.2
+    ],
+    "audio_nearby": [],
+    "headshot_nearby": []
+  }
+]

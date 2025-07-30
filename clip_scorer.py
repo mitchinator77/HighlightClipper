@@ -1,5 +1,7 @@
 
 import json
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
 from pathlib import Path
 from audio_headshot_detector import detect_headshot_audio
 from visual_headshot_flash_detector import detect_headshot_flash
