@@ -10,7 +10,7 @@ TEMPLATE_ROOT_DIR = "templates"
 HUD_TEMPLATE_DIR = os.path.join(TEMPLATE_ROOT_DIR, "hud_elements")
 BUYPHASE_DIR = os.path.join(TEMPLATE_ROOT_DIR, "buyphase_banner")
 SCOREBOARD_DIR = os.path.join(TEMPLATE_ROOT_DIR, "scoreboard")
-DETECTION_THRESHOLD = 0.7
+DETECTION_THRESHOLD = 0.5
 
 def load_templates_from_directory(directory):
     templates = []
@@ -30,6 +30,7 @@ def classify_frame(frame, templates, threshold=DETECTION_THRESHOLD):
     for name, template in templates:
         result = cv2.matchTemplate(gray, template, cv2.TM_CCOEFF_NORMED)
         _, max_val, _, _ = cv2.minMaxLoc(result)
+        print(f"🔍 Checking {name} → Score: {max_val:.3f}")
         if max_val >= threshold:
             print(f"✅ Match: {name} (score: {max_val:.2f})")
             return True
