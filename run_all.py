@@ -1,19 +1,8 @@
 import logging
 import os
 from pathlib import Path
-from mkv_converter import convert_all_mkv
-from chunker import chunk_all_videos
-from game_recognizer import classify_chunks_by_game
-from killfeed_detector import detect_killfeed_events, load_templates
-from highlight_logger import log_event
-from headshot_audio import detect_headshot_audio_peaks
-from audio_spike_detector import detect_audio_peaks
-from temporal_convergence_scorer import compute_convergence_score
-from clip_scorer import score_all_clips
-from scoring_logger import log_scores_to_file
-from highlight_filter_and_trimmer import trim_highlights
+import json
 
-# ✅ Logging setup
 def setup_logger():
     logging.basicConfig(
         level=logging.INFO,
@@ -27,6 +16,29 @@ log = setup_logger()
 def log_header(text):
     log.info(f"🔧 {text} 🔧")
 
+from mkv_converter import convert_all_mkv
+from chunker import chunk_all_videos
+from game_recognizer import classify_chunks_by_game
+from killfeed_detector import detect_killfeed_events, load_templates
+from highlight_logger import log_event
+from headshot_audio import detect_headshot_audio_peaks
+from audio_spike_detector import detect_audio_peaks
+from temporal_convergence_scorer import compute_convergence_score
+from clip_scorer import score_all_clips
+from scoring_logger import log_scores_to_file, log_game_classifications
+from highlight_filter_and_trimmer import trim_highlights
+
+log_header("Classifying game per chunk...")
+chunk_game_map = classify_chunks_by_game("Chunks")
+log_game_classifications(chunk_game_map)
+
+# 🧠 Save predictions for accuracy comparison
+Path("logs").mkdir(exist_ok=True)
+with open("logs/run_log.json", "w") as f:
+    json.dump(chunk_game_map, f, indent=2)
+
+
+
 def main():
     # ✅ Step 1: Convert MKV to MP4
     log_header("Converting MKV to MP4...")
@@ -39,6 +51,7 @@ def main():
     # ✅ Step 3: Game classification per chunk
     log_header("Classifying game per chunk...")
     chunk_game_map = classify_chunks_by_game("Chunks")
+    log_game_classifications(chunk_game_map)
 
     # ✅ Step 4: Highlight detection for Valorant chunks
     log_header("Running highlight detection on Valorant chunks...")

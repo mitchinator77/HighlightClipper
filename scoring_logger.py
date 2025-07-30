@@ -1,6 +1,7 @@
 # scoring_logger.py
 
 import json
+from pathlib import Path
 from typing import List, Dict, Tuple
 
 def log_scores_to_file(scored_moments: List[Tuple[float, float]], events: Dict[str, List[float]], path: str):
@@ -43,3 +44,12 @@ def log_clip_decision(timestamp: float, score: float, label: str, reason: str, p
 
     with open(path, "w") as f:
         json.dump(log, f, indent=2)
+        
+def log_game_classifications(chunk_game_map, output_path="logs/run_log.json"):
+    Path("logs").mkdir(exist_ok=True)
+    log_data = {
+        "game_classifications": chunk_game_map
+    }
+    with open(output_path, "w") as f:
+        json.dump(log_data, f, indent=2)
+    print(f"📘 Game classifications saved to {output_path}")
