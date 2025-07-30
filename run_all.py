@@ -29,7 +29,7 @@ from scoring_logger import log_scores_to_file, log_game_classifications
 from highlight_filter_and_trimmer import trim_highlights
 
 log_header("Classifying game per chunk...")
-chunk_game_map = classify_chunks_by_game("Chunks")
+chunk_game_map = classify_chunks_by_game_parallel("Chunks")
 log_game_classifications(chunk_game_map)
 
 # 🧠 Save predictions for accuracy comparison
