@@ -45,20 +45,21 @@ def classify_and_log_audio(clip_path, label, timestamp, confidence):
 def main():
     logger = setup_logger()
     log_header("Starting HighlightClipper (Parallel Mode)")
+
     def load_predict_headshot():
         from infer_headshot import predict
         return predict
 
     try:
-        logger.info("🎞️ Converting MKV to MP4...")
-        convert_all_mkv()
+        logger.info("🎞️ Converting MKV to MP4 from SourceVideos/...")
+        convert_all_mkv(source_dir="SourceVideos")
         logger.info("✅ MKV Conversion complete.")
     except Exception as e:
         logger.error(f"❌ Error in MKV conversion: {e}")
 
     try:
-        logger.info("✂️ Chunking videos...")
-        chunk_all_videos()
+        logger.info("✂️ Chunking newly converted MP4s...")
+        chunk_all_videos(source_dir="SourceVideos")
         logger.info("✅ Chunking complete.")
     except Exception as e:
         logger.error(f"❌ Error in chunking: {e}")
@@ -68,7 +69,6 @@ def main():
         templates = load_templates("killfeed_templates")
         chunked_videos = sorted(Path("Chunks").glob("*.mp4"))
 
-        # Wrap args for parallel pool
         args = [(clip_path, templates, logger, trim_highlights, detect_killfeed_events, log_scores_to_file,
                  detect_audio_peaks, detect_headshot_audio_peaks, load_predict_headshot)
                 for clip_path in chunked_videos]
@@ -88,6 +88,7 @@ def main():
         logger.error(f"❌ Error in fallback scoring: {e}")
 
     log_header("Pipeline Finished ✅")
+
 
 if __name__ == "__main__":
     import multiprocessing

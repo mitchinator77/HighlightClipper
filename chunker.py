@@ -2,7 +2,7 @@ import os
 import glob
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
-
+from pathlib import Path
 CONVERTED_FOLDER = "Converted"
 CHUNKS_FOLDER = "Chunks"
 CHUNK_LENGTH = 120  # seconds
@@ -24,7 +24,7 @@ def chunk_video(video_path):
     ]
     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-def chunk_all_videos():
-    mp4_files = glob.glob(os.path.join(CONVERTED_FOLDER, "*.mp4"))
+def chunk_all_videos(source_dir="SourceVideos"):
+    mp4_files = sorted(Path(source_dir).glob("*.mp4"))
     with ThreadPoolExecutor(max_workers=NUM_WORKERS) as executor:
         executor.map(chunk_video, mp4_files)
