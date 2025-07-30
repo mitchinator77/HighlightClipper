@@ -1,6 +1,8 @@
 import librosa
 import numpy as np
 from tensorflow.keras.models import load_model
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 MODEL_PATH = "Models/headshot_audio_classifier.h5"
 SAMPLE_RATE = 22050
