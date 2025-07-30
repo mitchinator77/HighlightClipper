@@ -1,89 +1,45 @@
-import cv2
 import os
-from pathlib import Path
+import cv2
+import numpy as np
+import joblib
+from tqdm import tqdm
 
-VALORANT_LABEL = "valorant"
-NON_VALO_LABEL = "other"
-TEMPLATE_ROOT_DIR = "templates"
-CLEANED_TEMPLATE_DIR = Path("cleaned_templates")
+MODEL_PATH = "game_classifier.joblib"
 
-# Define subfolder paths for various HUD elements
-SUBFOLDERS = ["killfeed", "buyphase_banner", "hud_elements", "scoreboard"]
-TEMPLATE_SETS = {}
+def extract_frame_features(video_path, frame_sample_rate=30):
+    cap = cv2.VideoCapture(video_path)
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    frame_indices = list(range(0, frame_count, frame_sample_rate))
 
-DETECTION_THRESHOLD = 0.7
-FRAME_SKIP = 30
-MAX_FRAMES = 10
+    all_features = []
 
-def load_templates_from_directory(directory):
-    templates = []
-    directory_path = Path(directory)
-    if not directory_path.exists():
-        print(f"⚠️ Directory does not exist: {directory}")
-        return []
-    for filename in os.listdir(directory):
-        if filename.endswith((".png", ".jpg", ".jpeg")):
-            filepath = os.path.join(directory, filename)
-            img = cv2.imread(filepath, cv2.IMREAD_GRAYSCALE)
-            if img is not None:
-                templates.append((filename, img))
-    return templates
+    for idx in frame_indices:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+        success, frame = cap.read()
+        if not success:
+            continue
 
-# Load templates from all subfolders
-for sub in SUBFOLDERS:
-    path = os.path.join(TEMPLATE_ROOT_DIR, sub)
-    TEMPLATE_SETS[sub] = load_templates_from_directory(path)
-
-# Also load cleaned killfeed templates
-TEMPLATE_SETS["cleaned_killfeed"] = load_templates_from_directory(CLEANED_TEMPLATE_DIR)
-
-def classify_frame(frame, templates, threshold=DETECTION_THRESHOLD):
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    for name, template in templates:
-        result = cv2.matchTemplate(gray, template, cv2.TM_CCOEFF_NORMED)
-        _, max_val, _, _ = cv2.minMaxLoc(result)
-        if max_val >= threshold:
-            print(f"✅ Match: {name} (score: {max_val:.2f})")
-            return True
-    return False
-
-def classify_video_game(video_path, frame_skip=FRAME_SKIP, max_frames=MAX_FRAMES):
-    cap = cv2.VideoCapture(str(video_path))
-    matched = False
-    frame_count = 0
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-    print(f"\n🎥 Classifying game in {video_path} using {len(TEMPLATE_SETS)} template groups")
-
-    while cap.isOpened() and frame_count < max_frames:
-        frame_idx = frame_count * frame_skip
-        if frame_idx >= total_frames:
-            break
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        print(f"🔍 Analyzing frame {frame_idx}...")
-
-        for group, templates in TEMPLATE_SETS.items():
-            print(f"  🧪 Checking templates from: {group}")
-            if classify_frame(frame, templates):
-                print(f"🎯 Game detected as VALORANT via group '{group}' at frame {frame_idx}")
-                matched = True
-                break
-        if matched:
-            break
-        frame_count += 1
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        resized = cv2.resize(gray, (128, 96))  # 128 x 96 = 12,288 features
+        features = resized.flatten()
+        all_features.append(features)
 
     cap.release()
-    return VALORANT_LABEL if matched else NON_VALO_LABEL
 
-def classify_chunks_by_game(chunks_dir):
-    chunk_game_map = {}
-    for chunk_file in Path(chunks_dir).glob("*.mp4"):
-        print(f"\n🧠 Classifying game for chunk: {chunk_file.name}")
-        game_label = classify_video_game(chunk_file)
-        chunk_game_map[str(chunk_file)] = game_label
-        print(f"🔖 Result: {chunk_file.name} => {game_label}")
-    return chunk_game_map
+    if not all_features:
+        return np.zeros((64 * 64,))
+
+    return np.mean(all_features, axis=0)
+
+def classify_chunks_by_game(chunk_dir):
+    clf = joblib.load(MODEL_PATH)
+    predictions = {}
+
+    for filename in tqdm(os.listdir(chunk_dir), desc="🎮 Classifying chunks"):
+        if filename.endswith(".mp4"):
+            filepath = os.path.join(chunk_dir, filename)
+            features = extract_frame_features(filepath)
+            prediction = clf.predict([features])[0]
+            predictions[filename] = prediction
+
+    return predictions

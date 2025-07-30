@@ -1,50 +1,56 @@
 import json
-from pathlib import Path
+import os
 
-LOG_FILE = "logs/run_log.json"
-FEEDBACK_FILE = "chunk_feedback.json"
+# Paths
+HUMAN_LABELS_FILE = "chunk_feedback.json"  # from GUI
+PREDICTIONS_FILE = "logs/run_log.json"  # from run_all.py
 
-def load_json(file):
-    try:
-        with open(file, "r") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        print(f"❌ File not found: {file}")
-        return {}
+# Load human labels
+def load_human_labels():
+    with open(HUMAN_LABELS_FILE, "r") as f:
+        return json.load(f)
 
+# Load model predictions
+def load_predictions():
+    with open(PREDICTIONS_FILE, "r") as f:
+        data = json.load(f)
+        return data.get("game_classifications", {})
+
+# Main comparison
 def compare_labels():
-    predicted_data = load_json(LOG_FILE)
-    human_labels = load_json(FEEDBACK_FILE)
+    human_labels = load_human_labels()
+    predictions = load_predictions()
 
-    correct = []
-    mismatches = []
-    missing_preds = []
+    # Normalize keys (remove folder paths)
+    normalized_predictions = {os.path.basename(k): v for k, v in predictions.items()}
+    normalized_human_labels = {os.path.basename(k): v for k, v in human_labels.items()}
 
-    for chunk, human_label in human_labels.items():
-        pred_label = predicted_data.get(chunk, {}).get("game_classification")
-        if pred_label is None:
-            missing_preds.append((chunk, human_label))
-        elif pred_label == human_label:
-            correct.append((chunk, human_label))
+    correct = 0
+    mismatches = 0
+    missing = []
+
+    for filename, human_label in normalized_human_labels.items():
+        predicted_label = normalized_predictions.get(filename)
+        if predicted_label is None:
+            missing.append((filename, human_label))
+        elif predicted_label == human_label:
+            correct += 1
         else:
-            mismatches.append((chunk, human_label, pred_label))
+            mismatches += 1
+            print(f"❌ Mismatch: {filename}: Human = {human_label}, Predicted = {predicted_label}")
 
-    print("✅ Correct Matches:", len(correct))
-    print("❌ Mismatches:", len(mismatches))
-    print("🤷 Missing Predictions:", len(missing_preds))
+    print("✅ Correct Matches:", correct)
+    print("❌ Mismatches:", mismatches)
+    print("🤷 Missing Predictions:", len(missing))
     print("-" * 50)
-
-    if mismatches:
-        print("\n❌ Mismatched Examples:")
-        for chunk, human, pred in mismatches:
-            print(f"  {Path(chunk).name}: Human = {human} | Predicted = {pred}")
-
-    if missing_preds:
+    if missing:
         print("\n🤷 Missing Predictions:")
-        for chunk, human in missing_preds:
-            print(f"  {Path(chunk).name}: Human = {human}")
+        for filename, label in missing:
+            print(f"  {filename}: Human = {label}")
 
-    print("\n🧠 Accuracy:", f"{len(correct) / len(human_labels) * 100:.2f}%" if human_labels else "N/A")
+    accuracy = (correct / len(normalized_human_labels)) * 100 if normalized_human_labels else 0
+    print(f"\n🧠 Accuracy: {accuracy:.2f}%")
 
+# Run it
 if __name__ == "__main__":
     compare_labels()
