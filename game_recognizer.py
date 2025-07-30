@@ -5,8 +5,11 @@ from pathlib import Path
 VALORANT_LABEL = "valorant"
 NON_VALO_LABEL = "other"
 CLEANED_TEMPLATE_DIR = Path("cleaned_templates")
-HUD_TEMPLATE_DIR = Path("hud_templates")
-
+HUD_TEMPLATE_DIR = "templates/hud_elements"
+TEMPLATE_ROOT_DIR = "templates"
+HUD_TEMPLATE_DIR = os.path.join(TEMPLATE_ROOT_DIR, "hud_elements")
+BUYPHASE_DIR = os.path.join(TEMPLATE_ROOT_DIR, "buyphase_banner")
+SCOREBOARD_DIR = os.path.join(TEMPLATE_ROOT_DIR, "scoreboard")
 DETECTION_THRESHOLD = 0.7
 
 def load_templates_from_directory(directory):
