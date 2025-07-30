@@ -5,6 +5,9 @@ from pathlib import Path
 import numpy as np
 from scipy.io import wavfile
 from moviepy.editor import AudioFileClip
+from infer_headshot import predict as predict_headshot
+from highlight_logger import log_event
+
 
 from mkv_converter import convert_all_mkv
 from chunker import chunk_all_videos
@@ -52,6 +55,23 @@ def extract_audio_waveform(video_path: str) -> tuple[np.ndarray, int]:
     except Exception as e:
         logging.error(f"❌ Error extracting audio: {e}")
         return np.array([]), 44100
+
+
+def classify_and_log_audio(clip_path, label, timestamp, confidence):
+    log_event(
+        video_name=clip_path.stem,
+        event_type="headshot_detection",
+        timestamp=timestamp,
+        confidence=confidence,
+        tags=[label]
+    )
+
+    if label == "headshot":
+        headshot_dir = Path("Highlights/Headshots")
+        headshot_dir.mkdir(parents=True, exist_ok=True)
+        dest = headshot_dir / clip_path.name
+        clip_path.rename(dest)
+
 
 def main():
     setup_logger()
@@ -106,6 +126,14 @@ def main():
 
             # Save final highlight clips
             trim_highlights(str(clip_path), scored_moments)
+            # Classify and log headshots
+            try:
+                for ts in headshot_timestamps:
+                    label, confidence = predict_headshot(str(clip_path))
+                    classify_and_log_audio(clip_path, label, ts, confidence)
+            except Exception as e:
+                logging.error(f"⚠️ Headshot classifier failed on {clip_path.name}: {e}")
+
 
         logging.info("✅ All detection, scoring, and trimming complete.")
     except Exception as e:
