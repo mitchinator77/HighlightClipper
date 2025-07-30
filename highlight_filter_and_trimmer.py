@@ -1,38 +1,63 @@
 import cv2
-import numpy as np
 import os
+from moviepy.editor import VideoFileClip
 from pathlib import Path
-from clip_utils import trim_and_save_clip
 from scoring_logger import log_clip_decision
-from headshot_audio import detect_headshot_audio_peaks
-from killfeed_detector import detect_killfeed_events, load_templates
-from spectator_detector import is_spectator_present
 
-def trim_highlights(video_path, all_templates, output_dir="Highlights", maybe_dir="Maybes", headshot_audio_peaks=None):
-    killfeed_templates = [t for t in all_templates if t.shape[0] > 20]  # crude filter for size-based selection
-    score, timestamps = detect_killfeed_events(video_path, killfeed_templates)
+SPECTATOR_ICON_PATH = "templates/spectator/spectator_icon.png"
+SPECTATOR_REGION = (20, 950, 200, 1060)  # (y1, y2, x1, x2)
 
-    if headshot_audio_peaks is None:
-        headshot_audio_peaks = detect_headshot_audio_peaks(video_path)
+def is_spectating(frame):
+    if not os.path.exists(SPECTATOR_ICON_PATH):
+        print("⚠️ Spectator icon template not found.")
+        return False
 
-    headshot_boosted = []
-    for ts in timestamps:
-        boosted = any(abs(ts - hs_ts) < 1.0 for hs_ts in headshot_audio_peaks)
-        headshot_boosted.append(boosted)
+    y1, y2, x1, x2 = SPECTATOR_REGION
+    cropped = frame[y1:y2, x1:x2]
+    icon_template = cv2.imread(SPECTATOR_ICON_PATH, cv2.IMREAD_GRAYSCALE)
+    gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
 
-    for idx, ts in enumerate(timestamps):
-        is_headshot = headshot_boosted[idx]
-        confidence_score = score + (2 if is_headshot else 0)
+    result = cv2.matchTemplate(gray, icon_template, cv2.TM_CCOEFF_NORMED)
+    _, max_val, _, _ = cv2.minMaxLoc(result)
+    print(f"👁️ Spectator icon match score: {max_val:.2f}")
+    return max_val > 0.75
 
-        if is_spectator_present(video_path, ts):
-            log_clip_decision(video_path, ts, confidence_score, "Spectating - Skipped")
+def trim_and_save_clip(source_video, start_time, end_time, out_path):
+    try:
+        clip = VideoFileClip(source_video).subclip(start_time, end_time)
+        clip.write_videofile(out_path, codec="libx264", audio_codec="aac", verbose=False, logger=None)
+    except Exception as e:
+        print(f"❌ Error trimming clip: {e}")
+
+def trim_highlights(detected_highlights, output_dir="Highlights", headshot_timestamps=None):
+    os.makedirs(output_dir, exist_ok=True)
+    for clip_path, info in detected_highlights.items():
+        video_path = info['source']
+        start = info['start']
+        end = info['end']
+        clip_name = Path(clip_path).stem
+        save_path = os.path.join(output_dir, f"{clip_name}_highlight.mp4")
+
+        # Spectator Check
+        cap = cv2.VideoCapture(video_path)
+        cap.set(cv2.CAP_PROP_POS_MSEC, start * 1000)
+        ret, frame = cap.read()
+        cap.release()
+
+        if ret and is_spectating(frame):
+            print(f"🚫 Skipping {clip_path} - player is spectating.")
+            log_clip_decision(clip_path, "rejected", "player is spectating")
             continue
 
-        if confidence_score >= 5:
-            trim_and_save_clip(video_path, ts, output_dir, tag="headshot" if is_headshot else "highlight")
-            log_clip_decision(video_path, ts, confidence_score, "Highlight")
-        elif confidence_score >= 3:
-            trim_and_save_clip(video_path, ts, maybe_dir, tag="maybe")
-            log_clip_decision(video_path, ts, confidence_score, "Maybe")
-        else:
-            log_clip_decision(video_path, ts, confidence_score, "Ignored")
+        # Headshot confidence (if applicable)
+        headshot_tag = False
+        if headshot_timestamps:
+            for t in headshot_timestamps:
+                if start <= t <= end:
+                    headshot_tag = True
+                    break
+        reason = "contains headshot" if headshot_tag else "generic highlight"
+        log_clip_decision(clip_path, "accepted", reason)
+
+        trim_and_save_clip(video_path, start, end, save_path)
+        print(f"✅ Saved: {save_path}")
