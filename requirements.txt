@@ -4,3 +4,6 @@ librosa
 scipy
 moviepy
 pydub
+joblib
+scikit-learn
+tqdm

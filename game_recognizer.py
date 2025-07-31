@@ -59,9 +59,9 @@ def classify_chunk(filepath):
     prediction = clf.predict([features])[0]
     return cache_key, prediction
 
-def classify_chunks_by_game_parallel(chunk_folder):
+def classify_chunks_by_game_parallel(chunk_folder, n_workers=cpu_count()):
     """
-    Classify all chunks using parallel processing and cached features.
+    Classify all chunks using parallel processing, ffmpeg-based frame extraction, and feature caching.
     """
     print("⚙️ Using multiprocessing game classifier with ffmpeg & cache")
 
@@ -74,20 +74,28 @@ def classify_chunks_by_game_parallel(chunk_folder):
     cache = load_cache()
     chunk_game_map = {}
 
-    # Split chunks into cached and uncached
+    # Identify uncached chunks
     uncached = [p for p in chunk_paths if os.path.basename(p) not in cache]
 
     if uncached:
         print(f"🧠 Extracting features for {len(uncached)} new chunks...")
-        with Pool(cpu_count()) as pool:
-            results = list(tqdm(pool.imap(classify_chunk, uncached), total=len(uncached)))
+
+        def safe_classify(path):
+            try:
+                return classify_chunk(path)
+            except Exception as e:
+                print(f"❌ Failed to classify {path}: {e}")
+                return os.path.basename(path), "unknown"
+
+        with Pool(n_workers) as pool:
+            results = list(tqdm(pool.imap(safe_classify, uncached), total=len(uncached)))
 
         for chunk_name, prediction in results:
             cache[chunk_name] = prediction
 
         save_cache(cache)
 
-    # Combine all predictions (cached + new)
+    # Merge all predictions
     for path in chunk_paths:
         chunk_name = os.path.basename(path)
         chunk_game_map[chunk_name] = cache.get(chunk_name, "unknown")

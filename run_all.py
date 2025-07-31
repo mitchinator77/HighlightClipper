@@ -50,7 +50,9 @@ def main():
 
     # ✅ Step 3: Game classification per chunk
     log_header("Classifying game per chunk...")
-    chunk_game_map = classify_chunks_by_game("Chunks")
+    from game_recognizer import classify_chunks_by_game_parallel
+    chunk_game_map = classify_chunks_by_game_parallel("Chunks")
+
     log_game_classifications(chunk_game_map)
 
     # ✅ Step 4: Highlight detection for Valorant chunks
