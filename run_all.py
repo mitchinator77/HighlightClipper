@@ -28,10 +28,6 @@ def main():
     logger = setup_logger()
     base_dir = "."
 
-    # Step 1: Classify game
-    log_header("Classifying game per chunk...")
-    chunk_game_map = classify_all_chunks("OutputChunks", output_path="logs/run_log.json", force_valo=False)
-
     # Step 2: Convert MKV to MP4
     log_header("Converting MKV to MP4...")
     convert_all_mkv("SourceVideos")
@@ -43,7 +39,7 @@ def main():
 
     # Step 4: Re-classify after chunking
     log_header("Classifying game per chunk...")
-    chunk_game_map = classify_all_chunks("OutputChunks", output_path="logs/run_log.json", force_valo=False)
+    chunk_game_map = classify_all_chunks("Chunks", output_path="logs/run_log.json", force_valo=False)
 
     # Step 5: Run highlight detection
     log_header("Running highlight detection on Valorant chunks...")
@@ -52,7 +48,7 @@ def main():
             logging.info(f"⏭️ Skipping non-Valorant chunk: {chunk_file}")
             continue
 
-        chunk_path = os.path.join("OutputChunks", chunk_file)
+        chunk_path = os.path.join("Chunks", chunk_file)
 
         killfeed_events = detect_killfeed_events(chunk_path)
         audio_peaks = detect_audio_peaks(chunk_path)
