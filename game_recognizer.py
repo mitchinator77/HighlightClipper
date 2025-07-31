@@ -1,104 +1,60 @@
 import os
-import json
-import joblib
+import cv2
 import numpy as np
-import ffmpeg
-from tqdm import tqdm
-from multiprocessing import Pool, cpu_count
+import json
+from pathlib import Path
+from sklearn.metrics.pairwise import cosine_similarity
+import logging
 
-# Load trained classifier
-clf = joblib.load("game_classifier.joblib")
-FEATURE_CACHE_FILE = "logs/feature_cache.json"
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
-def extract_center_frame_ffmpeg(filepath):
-    """
-    Extracts the center frame of the video using ffmpeg as a grayscale 64x64 flattened numpy array.
-    """
-    try:
-        # Get total number of frames
-        probe = ffmpeg.probe(filepath)
-        num_frames = int(probe['streams'][0]['nb_frames'])
-        center_frame = num_frames // 2
+# Dummy features for known games
+KNOWN_FEATURES = {
+    "valorant": np.array([0.6, 0.8, 0.75]),
+    "other": np.array([0.2, 0.1, 0.15])
+}
 
-        # Extract frame using ffmpeg
-        out, _ = (
-            ffmpeg
-            .input(filepath)
-            .filter('select', f'eq(n\\,{center_frame})')
-            .output('pipe:', vframes=1, format='rawvideo', pix_fmt='gray')
-            .run(capture_stdout=True, capture_stderr=True, quiet=True)
-        )
+def extract_features(chunk_path):
+    # Simulated feature extraction
+    return np.random.rand(3)
 
-        # Convert byte data to numpy array
-        frame = np.frombuffer(out, np.uint8)
-        frame = frame.reshape((-1,))  # Flatten to 1D
-        return frame
-    except Exception as e:
-        print(f"⚠️ Failed to extract frame from {filepath}: {e}")
-        return None
+def classify_chunk_features(features, threshold=0.75, force_valo=False):
+    if force_valo:
+        logger.info("🧪 Forcing classification to 'valorant'")
+        return "valorant"
 
-def extract_features(filepath):
-    return extract_center_frame_ffmpeg(filepath)
+    similarities = {
+        game: cosine_similarity([features], [feat])[0][0]
+        for game, feat in KNOWN_FEATURES.items()
+    }
 
-def load_cache():
-    if os.path.exists(FEATURE_CACHE_FILE):
-        with open(FEATURE_CACHE_FILE, "r") as f:
-            return json.load(f)
-    return {}
+    best_game = max(similarities, key=similarities.get)
+    confidence = similarities[best_game]
 
-def save_cache(cache):
-    with open(FEATURE_CACHE_FILE, "w") as f:
-        json.dump(cache, f)
+    logger.info(f"🔍 Similarities: {similarities} → Best: {best_game} ({confidence:.2f})")
 
-def classify_chunk(filepath):
-    cache_key = os.path.basename(filepath)
-    features = extract_features(filepath)
-    if features is None:
-        return cache_key, "unknown"
+    if confidence >= threshold:
+        return best_game
+    else:
+        fallback = "valorant" if best_game == "valorant" else "other"
+        logger.warning(f"⚠️ Confidence {confidence:.2f} below threshold. Using fallback: {fallback}")
+        return fallback
 
-    prediction = clf.predict([features])[0]
-    return cache_key, prediction
+def classify_all_chunks(chunk_dir, output_path="logs/run_log.json", threshold=0.75, force_valo=False):
+    chunk_dir = Path(chunk_dir)
+    output_path = Path(output_path)
+    os.makedirs(output_path.parent, exist_ok=True)
 
-# 🔧 FIX: Moved to top level so it can be pickled by multiprocessing
-def safe_classify(path):
-    try:
-        return classify_chunk(path)
-    except Exception as e:
-        print(f"❌ Failed to classify {path}: {e}")
-        return os.path.basename(path), "unknown"
+    classifications = {}
 
-def classify_chunks_by_game_parallel(chunk_folder, n_workers=cpu_count()):
-    """
-    Classify all chunks using parallel processing, ffmpeg-based frame extraction, and feature caching.
-    """
-    print("⚙️ Using multiprocessing game classifier with ffmpeg & cache")
+    for chunk_file in chunk_dir.glob("*.mp4"):
+        features = extract_features(str(chunk_file))
+        game = classify_chunk_features(features, threshold=threshold, force_valo=force_valo)
+        classifications[chunk_file.name] = game
 
-    chunk_paths = [
-        os.path.join(chunk_folder, f)
-        for f in os.listdir(chunk_folder)
-        if f.endswith(".mp4")
-    ]
+    with open(output_path, "w") as f:
+        json.dump({"game_classifications": classifications}, f, indent=2)
 
-    cache = load_cache()
-    chunk_game_map = {}
-
-    # Identify uncached chunks
-    uncached = [p for p in chunk_paths if os.path.basename(p) not in cache]
-
-    if uncached:
-        print(f"🧠 Extracting features for {len(uncached)} new chunks...")
-
-        with Pool(n_workers) as pool:
-            results = list(tqdm(pool.imap(safe_classify, uncached), total=len(uncached)))
-
-        for chunk_name, prediction in results:
-            cache[chunk_name] = prediction
-
-        save_cache(cache)
-
-    # Merge all predictions
-    for path in chunk_paths:
-        chunk_name = os.path.basename(path)
-        chunk_game_map[chunk_name] = cache.get(chunk_name, "unknown")
-
-    return chunk_game_map
+    logger.info(f"✅ Saved classifications to {output_path}")
+    return classifications
