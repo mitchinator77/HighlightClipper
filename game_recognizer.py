@@ -24,7 +24,7 @@ def extract_center_frame_ffmpeg(filepath):
         out, _ = (
             ffmpeg
             .input(filepath)
-            .filter('select', f'eq(n\,{center_frame})')
+            .filter('select', f'eq(n\\,{center_frame})')
             .output('pipe:', vframes=1, format='rawvideo', pix_fmt='gray')
             .run(capture_stdout=True, capture_stderr=True, quiet=True)
         )
@@ -59,6 +59,14 @@ def classify_chunk(filepath):
     prediction = clf.predict([features])[0]
     return cache_key, prediction
 
+# 🔧 FIX: Moved to top level so it can be pickled by multiprocessing
+def safe_classify(path):
+    try:
+        return classify_chunk(path)
+    except Exception as e:
+        print(f"❌ Failed to classify {path}: {e}")
+        return os.path.basename(path), "unknown"
+
 def classify_chunks_by_game_parallel(chunk_folder, n_workers=cpu_count()):
     """
     Classify all chunks using parallel processing, ffmpeg-based frame extraction, and feature caching.
@@ -79,13 +87,6 @@ def classify_chunks_by_game_parallel(chunk_folder, n_workers=cpu_count()):
 
     if uncached:
         print(f"🧠 Extracting features for {len(uncached)} new chunks...")
-
-        def safe_classify(path):
-            try:
-                return classify_chunk(path)
-            except Exception as e:
-                print(f"❌ Failed to classify {path}: {e}")
-                return os.path.basename(path), "unknown"
 
         with Pool(n_workers) as pool:
             results = list(tqdm(pool.imap(safe_classify, uncached), total=len(uncached)))
