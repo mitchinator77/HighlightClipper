@@ -1,6 +1,7 @@
 import logging
 import os
 import shutil
+import argparse
 from datetime import datetime
 from pathlib import Path
 
@@ -13,6 +14,12 @@ from headshot_audio import detect_headshot_audio_peaks
 from clip_scorer import score_all_clips
 from clip_feedback_trainer import log_feedback, train_on_feedback
 from highlight_filter_and_trimmer import trim_highlights
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--max-chunks', type=int, default=None, help='Limit number of chunks to classify')
+    return parser.parse_args()
+
 
 def setup_logger():
     logging.basicConfig(
@@ -30,9 +37,8 @@ def move_processed_chunk(chunk_path):
     os.makedirs(processed_dir, exist_ok=True)
     shutil.move(chunk_path, os.path.join(processed_dir, os.path.basename(chunk_path)))
 
-def main():
+def main(max_chunks=None):
     logger = setup_logger()
-    base_dir = "."
 
     log_header("Converting MKV to MP4...")
     convert_all_mkv("SourceVideos")
@@ -40,10 +46,11 @@ def main():
     log_header("Chunking videos...")
     chunk_all_videos("ConvertedVideos")
 
+    args = parse_args()
+
     log_header("Classifying game per chunk...")
-    chunk_game_map = classify_all_chunks("Chunks", output_path="logs/run_log.json", force_valo=False)
-    for chunk_file, game in chunk_game_map.items():
-    logging.info(f"📁 {chunk_file} → {game}")
+    chunk_game_map = classify_all_chunks("Chunks", output_path="logs/run_log.json", force_valo=False, max_chunks=args.max_chunks)
+
 
     log_header("Running highlight detection on Valorant chunks...")
     templates = load_templates(Path("templates/killfeed"))
@@ -78,4 +85,7 @@ def main():
     log_header("Pipeline complete.")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--max-chunks", type=int, default=None, help="Max chunks to process")
+    args = parser.parse_args()
+    main(max_chunks=args.max_chunks)
