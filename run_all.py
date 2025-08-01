@@ -1,12 +1,13 @@
 import logging
 import os
+import shutil
 from datetime import datetime
 from pathlib import Path
 
 from mkv_converter import convert_all_mkv
 from chunker import chunk_all_videos
 from game_recognizer import classify_all_chunks
-from killfeed_detector import detect_killfeed_events
+from killfeed_detector import detect_killfeed_events, load_templates
 from audio_spike_detector import detect_audio_peaks
 from headshot_audio import detect_headshot_audio_peaks
 from clip_scorer import score_all_clips
@@ -24,25 +25,29 @@ def setup_logger():
 def log_header(text):
     logging.info(f"🔧 {text} 🔧")
 
+def move_processed_chunk(chunk_path):
+    processed_dir = "ProcessedChunks"
+    os.makedirs(processed_dir, exist_ok=True)
+    shutil.move(chunk_path, os.path.join(processed_dir, os.path.basename(chunk_path)))
+
 def main():
     logger = setup_logger()
     base_dir = "."
 
-    # Step 2: Convert MKV to MP4
     log_header("Converting MKV to MP4...")
     convert_all_mkv("SourceVideos")
 
-   # Step 3: Chunk videos
     log_header("Chunking videos...")
-    chunk_all_videos("ConvertedVideos")  # assume OutputChunks is default inside the function
+    chunk_all_videos("ConvertedVideos")
 
-
-    # Step 4: Re-classify after chunking
     log_header("Classifying game per chunk...")
     chunk_game_map = classify_all_chunks("Chunks", output_path="logs/run_log.json", force_valo=False)
+    for chunk_file, game in chunk_game_map.items():
+    logging.info(f"📁 {chunk_file} → {game}")
 
-    # Step 5: Run highlight detection
     log_header("Running highlight detection on Valorant chunks...")
+    templates = load_templates(Path("templates/killfeed"))
+
     for chunk_file, game in chunk_game_map.items():
         if game != "valorant":
             logging.info(f"⏭️ Skipping non-Valorant chunk: {chunk_file}")
@@ -50,19 +55,18 @@ def main():
 
         chunk_path = os.path.join("Chunks", chunk_file)
 
-        killfeed_events = detect_killfeed_events(chunk_path)
+        killfeed_events = detect_killfeed_events(chunk_path, templates)
         audio_peaks = detect_audio_peaks(chunk_path)
         headshot_peaks = detect_headshot_audio_peaks(chunk_path)
 
-        # Score & save
         score = score_all_clips(chunk_path, killfeed_events, audio_peaks, headshot_peaks)
         logging.info(f"⭐ Highlight score for {chunk_file}: {score:.2f}")
 
-        # Send to feedback system
         is_highlight = score >= 0.75
         log_feedback(chunk_path, is_highlight)
 
-    # Step 6: Trigger trainer every N clips
+        move_processed_chunk(chunk_path)
+
     feedback_log = "feedback_logs/clip_feedback.json"
     if os.path.exists(feedback_log):
         with open(feedback_log) as f:
